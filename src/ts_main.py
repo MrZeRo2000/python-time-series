@@ -8,6 +8,8 @@ from statsmodels.tsa.arima_model import ARMA
 from sklearn.metrics import median_absolute_error
 import math
 
+
+
 file_name = os.path.dirname(__file__)
 data_file_name = os.path.join(file_name, "../data", "DN_ML_TS_TRIPS.txt")
 
@@ -47,6 +49,8 @@ if show_plots:
 # adfuller_result = adfuller(df["CNT_DRIVES"])
 # print(adfuller_result[1])
 
+'''
+# Not needed anymore
 mod = ARMA(dfa, order=(7, 0))
 res = mod.fit()
 
@@ -61,6 +65,7 @@ if show_plots:
     plt.legend(title="Prediction by day error:" + str(round(median_absolute_error(y_true, y_pred)/y_true.mean() * 100, 2)) + "%")
     plt.show()
 
+'''
 
 # align dataframe by weeks
 dfa = dfa.iloc[len(dfa) - math.trunc(len(dfa) / 7) * 7:]
@@ -73,11 +78,10 @@ dfa_test = dfa[-7:]
 dfar = []
 y_pred = []
 for shift in range(7):
-    dfar.append(dfa[shift:].resample('7D').first())
+    dfar.append(dfa_train[shift:].resample('7D').first())
     mod = ARMA(dfar[shift], order=(7, 0))
     res = mod.fit()
     y_pred.append(res.predict(start=dfar[shift].index.max())[0])
-
 
 dfa_result = pd.DataFrame(y_pred)
 dfa_result.columns = ["forecast"]
@@ -93,7 +97,7 @@ if show_plots:
 print("Prediction by week error:" + str(round(median_absolute_error(dfa_result["CNT_DRIVES"], dfa_result["forecast"])/dfa_result["CNT_DRIVES"].mean() * 100, 2)) + "%")
 
 # prediction by day
-mod = ARMA(dfa_train, order=(7, 0))
+mod = ARMA(dfa_train, order=(7, 2))
 res = mod.fit()
 
 y_pred = res.predict(start="2018-10-08", end="2018-10-14").values
@@ -106,5 +110,12 @@ dfa_result.index = dfa_test.index
 if show_plots:
     dfa_result.plot()
     plt.title("Prediction by day")
-    plt.legend(title="Prediction by week error:" + str(round(median_absolute_error(dfa_result["CNT_DRIVES"], dfa_result["forecast"])/dfa_result["CNT_DRIVES"].mean() * 100, 2)) + "%")
+    plt.legend(title="Prediction by day error:" + str(round(median_absolute_error(dfa_result["CNT_DRIVES"], dfa_result["forecast"])/dfa_result["CNT_DRIVES"].mean() * 100, 2)) + "%")
     plt.show()
+
+'''
+if show_plots:
+    res.plot_predict(start="2018-10-06", end="2018-10-14")
+    plt.title("Prediction by day via plot_predict")
+    plt.show()
+'''
