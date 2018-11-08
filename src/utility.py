@@ -6,10 +6,12 @@ Purpose:
     Utility classes
 
 """
-
+import os
 import pandas as pd
+import math
 from sklearn.metrics import median_absolute_error
 import matplotlib.pyplot as plt
+
 
 class ResultComposer:
     """Class to compose result data"""
@@ -46,3 +48,57 @@ class ResultComposer:
         plt.title(title)
         plt.legend(title=title + ":" + str(str(self.get_error_percent())) + "%")
         plt.show()
+
+
+class DataFramePreprocessor:
+    def __init__(self, fact_field_name):
+        self.fact_field_name = fact_field_name
+        self.df_train = None
+        self.df_test = None
+        self.dfa = None
+
+    def process(self):
+        file_name = os.path.dirname(__file__)
+        data_file_name = os.path.join(file_name, "../data", "DN_ML_TS_TRIPS.txt")
+
+        df = pd.read_csv(data_file_name, ",")
+
+        # limit by BER fleet
+        df = df[df["FLEET_ID"] == "BER"]
+
+        # drop unneeded columns
+        df = df.drop(["FLEET_ID", "COMPANY_NO"], axis=1)
+
+        # convert day_id to index column
+        df.index = pd.to_datetime(df["DAY_ID"], format="%d/%m/%Y")
+        df = df.drop(["DAY_ID"], axis=1)
+
+        # leave only CNT_DRIVES for analysis
+        df = df[[self.fact_field_name]]
+
+        # align dataframe by weeks
+        self.dfa = df.iloc[len(df) - math.trunc(len(df) / 7) * 7:]
+
+        # split to train and test
+        self.df_train = self.dfa[:-7]
+        self.df_test = self.dfa[-7:]
+
+    def get_train_data(self):
+        if self.df_train is None:
+            self.process()
+        return self.df_train
+
+    def get_test_data(self):
+        if self.df_test is None:
+            self.process()
+        return self.df_test
+
+    def get_data(self):
+        if self.dfa is None:
+            self.process()
+        return self.dfa
+
+    def get_all_data(self):
+        if self.dfa is None:
+            self.process()
+        return self.df_train, self.df_test, self.dfa
