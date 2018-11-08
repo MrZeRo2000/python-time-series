@@ -3,6 +3,7 @@ import os
 import pandas as pd
 import matplotlib.pyplot as plt
 from statsmodels.graphics.tsaplots import plot_acf
+from statsmodels.graphics.tsaplots import plot_pacf
 from statsmodels.tsa.stattools import adfuller
 from statsmodels.tsa.arima_model import ARMA
 from statsmodels.tsa.arima_model import ARIMA
@@ -47,6 +48,9 @@ dfa = dfa.dropna()
 if show_plots:
     plot_acf(dfa, lags=50, alpha=0.05)
     plt.show()
+    plot_pacf(dfa, lags=50, alpha=0.05)
+    plt.show()
+
 
 # out of interest only
 # adfuller_result = adfuller(df["CNT_DRIVES"])
@@ -97,6 +101,13 @@ pred_week_result = ResultComposer(y_pred, dfa_test[FACT_FIELD_NAME].values, dfa_
 if show_plots:
     pred_week_result.plot_data_result("Prediction by week")
 
+# previous periods prediction
+y_pred = dfa_train[-7:]
+
+pred_prev_result = ResultComposer(y_pred, dfa_test[FACT_FIELD_NAME].values, dfa_test.index)
+if show_plots:
+    pred_prev_result.plot_data_result("Prediction by previous period")
+
 # prediction by day
 mod = ARMA(dfa_train, order=(7, 2))
 res = mod.fit()
@@ -111,11 +122,21 @@ if show_plots:
     plt.title("Prediction by day via plot_predict")
     plt.show()
 
+# prediction by day tuning parameters
+df_bic = pd.DataFrame()
 
-# previous periods prediction
-y_pred = dfa_train[-7:]
+for ma in range(3):
+    bic = []
+    for ar in range(1, 10):
+        mod = ARMA(dfa_train, order=(ar, ma))
+        res = mod.fit()
+        bic.append(res.bic)
+    column_name = "MA=" + str(ma)
+    df_bic[column_name] = bic
 
-pred_prev_result = ResultComposer(y_pred, dfa_test[FACT_FIELD_NAME].values, dfa_test.index)
 if show_plots:
-    pred_prev_result.plot_data_result("Prediction by previous period")
-
+    df_bic.plot()
+    plt.title("BIC depending on AR and MA parameters")
+    plt.xlabel("AR")
+    plt.ylabel("BIC")
+    plt.show()
