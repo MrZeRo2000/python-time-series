@@ -11,6 +11,7 @@ import pandas as pd
 import math
 from sklearn.metrics import median_absolute_error
 import matplotlib.pyplot as plt
+from statsmodels.tsa.arima_model import ARMA
 
 
 class ResultComposer:
@@ -102,3 +103,39 @@ class DataFramePreprocessor:
         if self.dfa is None:
             self.process()
         return self.df_train, self.df_test, self.dfa
+
+
+class ARMAOrderTuner:
+    def __init__(self, df):
+        self.df = df
+        self.df_bic = None
+
+    def tune_bic(self, list_ar, list_ma):
+        self.df_bic = pd.DataFrame()
+
+        for ma in list_ma:
+            bic = []
+            for ar in list_ar:
+                # skip ar <= 0
+                if ar <= 0:
+                    continue
+                mod = ARMA(self.df, order=(ar, ma))
+                try:
+                    res = mod.fit()
+                    bic.append(res.bic)
+                except Exception as e:
+                    bic.append(None)
+                    print("*** ERROR ***")
+                    print("Failed to calc for (ar,ma)=(" + str(ar) + "," + str(ma) + ")")
+                    print("***  ***")
+            column_name = "MA=" + str(ma)
+            self.df_bic[column_name] = bic
+
+        self.df_bic.index += min(i for i in list_ar if i > 0)
+
+    def plot_bic(self):
+        self.df_bic.plot()
+        plt.title("BIC depending on AR and MA parameters")
+        plt.xlabel("AR")
+        plt.ylabel("BIC")
+        plt.show()

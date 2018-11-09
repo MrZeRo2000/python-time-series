@@ -3,9 +3,9 @@ import matplotlib.pyplot as plt
 from statsmodels.graphics.tsaplots import plot_acf
 from statsmodels.graphics.tsaplots import plot_pacf
 from statsmodels.tsa.arima_model import ARMA
+from statsmodels.tsa.stattools import adfuller
 
 from utility import ResultComposer, DataFramePreprocessor
-
 
 # plots show configuration
 show_plots = True
@@ -17,6 +17,7 @@ dfa_train, dfa_test, dfa = dfp.get_all_data()
 
 if show_plots:
     plot_acf(dfa, lags=50, alpha=0.05)
+    plt.title("ADF P-value:" + str(adfuller(dfa_train[FACT_FIELD_NAME].values)[1]))
     plt.show()
     plot_pacf(dfa, lags=50, alpha=0.05)
     plt.show()
@@ -50,6 +51,7 @@ def plot_prediction(data_result, title):
     plt.title(title)
     plt.legend(title=title + ":" + str(str(pred_week_result.get_error_percent())) + "%")
     plt.show()
+
 
 # prediction by week
 dfar = []
