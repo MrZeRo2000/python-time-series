@@ -10,6 +10,7 @@ import os
 import pandas as pd
 import math
 from sklearn.metrics import median_absolute_error
+from sklearn.metrics import mean_absolute_error
 import matplotlib.pyplot as plt
 from statsmodels.tsa.arima_model import ARMA
 
@@ -37,7 +38,7 @@ class ResultComposer:
 
     def get_error_percent(self):
         """Returns error in percent"""
-        error_value = median_absolute_error(self.data_result[self.FACT_FIELD_NAME], self.data_result[self.FORECAST_FIELD_NAME])
+        error_value = mean_absolute_error(self.data_result[self.FACT_FIELD_NAME], self.data_result[self.FORECAST_FIELD_NAME])
         mean_value = self.data_result[self.FACT_FIELD_NAME].mean()
         return round(error_value*100/mean_value, 2)
 
@@ -57,6 +58,10 @@ class DataFramePreprocessor:
         self.df_train = None
         self.df_test = None
         self.dfa = None
+
+    @staticmethod
+    def df_align_to_week(df):
+        return df.iloc[len(df) - math.trunc(len(df) / 7) * 7:]
 
     def process(self):
         file_name = os.path.dirname(__file__)
@@ -78,7 +83,7 @@ class DataFramePreprocessor:
         df = df[[self.fact_field_name]]
 
         # align dataframe by weeks
-        self.dfa = df.iloc[len(df) - math.trunc(len(df) / 7) * 7:]
+        self.dfa = DataFramePreprocessor.df_align_to_week(df)
 
         # split to train and test
         self.df_train = self.dfa[:-7]
@@ -103,6 +108,31 @@ class DataFramePreprocessor:
         if self.dfa is None:
             self.process()
         return self.df_train, self.df_test, self.dfa
+
+    def get_diff_train_data(self):
+        """
+        Calculates differences from training data set
+        :return: differences data frame
+        """
+        df = self.get_train_data().diff().dropna()
+        return DataFramePreprocessor.df_align_to_week(df)
+
+    def get_pred_from_diff(self, data_diff):
+        """
+        Returns real prediction data from differences
+        :param data_diff: data with predicted differences
+        :return: real predicted data
+        """
+
+        df_train = self.get_train_data()
+        train_last = df_train[df_train.columns[0]].values[-1]
+        data_real = []
+        for i in range(0, 7):
+            y_current = train_last + data_diff[i]
+            data_real.append(y_current)
+            train_last = y_current
+
+        return data_real
 
 
 class ARMAOrderTuner:

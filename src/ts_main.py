@@ -5,12 +5,13 @@ from statsmodels.graphics.tsaplots import plot_pacf
 from statsmodels.tsa.arima_model import ARMA
 from statsmodels.tsa.stattools import adfuller
 
-from utility import ResultComposer, DataFramePreprocessor
+from utility import ResultComposer, DataFramePreprocessor, ARMAOrderTuner
 
 # plots show configuration
 show_plots = True
-# leave only CNT_DRIVES for analysis
-FACT_FIELD_NAME = "CNT_DRIVES"
+tune_parameters = False
+# possible facts for analysis: "CNT_DRIVES","CNT_VEH_USED","SUM_INCOME_NETTO","SUM_KILOMETERS","SUM_MINUTES"
+FACT_FIELD_NAME = "SUM_INCOME_NETTO"
 
 dfp = DataFramePreprocessor(fact_field_name=FACT_FIELD_NAME)
 dfa_train, dfa_test, dfa = dfp.get_all_data()
@@ -45,14 +46,6 @@ if show_plots:
 
 '''
 
-
-def plot_prediction(data_result, title):
-    data_result.get_data_result().plot()
-    plt.title(title)
-    plt.legend(title=title + ":" + str(str(pred_week_result.get_error_percent())) + "%")
-    plt.show()
-
-
 # prediction by week
 dfar = []
 y_pred = []
@@ -82,12 +75,59 @@ pred_day_result = ResultComposer(y_pred, dfa_test[FACT_FIELD_NAME].values, dfa_t
 if show_plots:
     pred_day_result.plot_data_result("Prediction by day")
     plt.show()
-
+"""
     res.plot_predict(start="2018-10-06", end="2018-10-14")
     plt.title("Prediction by day via plot_predict")
     plt.show()
+"""
+
+# prediction by day using differences
+dfd_train = dfp.get_diff_train_data()
+
+if show_plots:
+    plot_acf(dfd_train, lags=50, alpha=0.05)
+    plt.title("ADF P-value:" + str(adfuller(dfd_train[FACT_FIELD_NAME].values)[1]))
+    plt.show()
+    plot_pacf(dfa, lags=50, alpha=0.05)
+    plt.show()
+
+mod = ARMA(dfd_train, order=(14, 1))
+res = mod.fit()
+y_pred_d = res.predict(start="2018-10-08", end="2018-10-14").values
+
+y_pred = dfp.get_pred_from_diff(y_pred_d)
+
+day_diff_result = ResultComposer(y_pred, dfa_test[FACT_FIELD_NAME].values, dfa_test.index)
+if show_plots:
+    day_diff_result.plot_data_result("Prediction by day differences")
+    plt.show()
+
+
+# prediction by week using differences
+dfdar = []
+y_pred_d = []
+for shift in range(7):
+    dfdar.append(dfd_train[shift:].resample('7D').first())
+    mod = ARMA(dfdar[shift], order=(2, 0))
+    res = mod.fit()
+    y_pred_d.append(res.forecast()[0])
+
+y_pred = dfp.get_pred_from_diff(y_pred_d)
+
+pred_diff_week_result = ResultComposer(y_pred, dfa_test[FACT_FIELD_NAME].values, dfa_test.index)
+if show_plots:
+    pred_diff_week_result.plot_data_result("Prediction by differences by week")
+
 
 # prediction by day tuning parameters
+
+# prediction by day tuning parameters
+if tune_parameters:
+    tuner = ARMAOrderTuner(dfa_train)
+    tuner.tune_bic(range(12), range(3))
+    tuner.plot_bic()
+
+
 """
 df_bic = pd.DataFrame()
 

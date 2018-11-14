@@ -11,13 +11,15 @@ import sys
 
 # plots show configuration
 show_plots = True
+# tune parameters
+tune_parameters = False
 # leave only CNT_DRIVES for analysis
 FACT_FIELD_NAME = "CNT_DRIVES"
 
 dfp = DataFramePreprocessor(fact_field_name=FACT_FIELD_NAME)
 dfa_train, dfa_test, dfa = dfp.get_all_data()
 
-dfd_train = dfa_train.diff().dropna()
+dfd_train = dfp.get_diff_train_data()
 
 if show_plots:
     plot_acf(dfd_train, lags=50, alpha=0.05)
@@ -25,16 +27,10 @@ if show_plots:
     plt.show()
 
 mod = ARMA(dfd_train, order=(14, 1))
-# mod = ARIMA(dfd_train, order=(7, 0, 3))
 res = mod.fit()
 y_pred_d = res.predict(start="2018-10-08", end="2018-10-14").values
 
-y_last = dfa_train[dfa_train.columns[0]].values[-1]
-y_pred = []
-for i in range(0, 7):
-    y_current = y_last + y_pred_d[i]
-    y_pred.append(y_current)
-    y_last = y_current
+y_pred = dfp.get_pred_from_diff(y_pred_d)
 
 day_diff_result = ResultComposer(y_pred, dfa_test[FACT_FIELD_NAME].values, dfa_test.index)
 if show_plots:
@@ -42,6 +38,7 @@ if show_plots:
     plt.show()
 
 # prediction by day tuning parameters
-tuner = ARMAOrderTuner(dfd_train)
-tuner.tune_bic(range(15), range(3))
-tuner.plot_bic()
+if tune_parameters:
+    tuner = ARMAOrderTuner(dfd_train)
+    tuner.tune_bic(range(15), range(3))
+    tuner.plot_bic()
