@@ -109,6 +109,11 @@ class DataFramePreprocessor:
             self.process()
         return self.df_train, self.df_test, self.dfa
 
+    def get_train_test_data(self):
+        if self.dfa is None:
+            self.process()
+        return self.df_train, self.df_test
+
     def get_diff_train_data(self):
         """
         Calculates differences from training data set
@@ -169,3 +174,50 @@ class ARMAOrderTuner:
         plt.xlabel("AR")
         plt.ylabel("BIC")
         plt.show()
+
+
+class FeatureProcessor:
+    def __init__(self, df):
+        self.__df = df
+
+    def get_shifted_data(self, fact_field_name, num_days = 40, num_weeks = 2):
+        df = self.__df.copy()
+
+        # added daily shifted data
+
+        for i in range(1, 40):
+            df["fd" + str(i)] = df.shift(i)[fact_field_name]
+
+        # added weekly shifted data
+        for i in range(1, 2):
+            df["fw" + str(i)] = df.shift(i * 7)[fact_field_name]
+
+        # drop null values
+        df = df.dropna()
+
+        # add weekdays
+        df_dow = pd.get_dummies(df.index.dayofweek, prefix="weekday", drop_first=True)
+        df_dow.index = df.index
+
+        df_output = pd.concat([df_dow, df], axis=1)
+
+        # columns and labels
+        features = [s for s in df_output.columns if s != fact_field_name]
+        labels = [fact_field_name]
+
+        return df_output, features, labels
+
+    def get_weekdays_data(self, fact_field_name):
+        df = self.__df.copy()
+
+        # add weekdays
+        df_dow = pd.get_dummies(df.index.dayofweek, prefix="weekday", drop_first=True)
+        df_dow.index = df.index
+
+        df_output = pd.concat([df_dow, df], axis=1)
+
+        # columns and labels
+        features = [s for s in df_output.columns if s != fact_field_name]
+        labels = [fact_field_name]
+
+        return df_output, features, labels
